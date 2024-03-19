@@ -81,4 +81,88 @@ int main() {
             exit(1);
         }
     }
+    volkLoadInstance(instance);
+
+    VkPhysicalDevice physicalDevice; {
+        uint32_t physicalDeviceCount = 0;
+        vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, NULL);
+        if (physicalDeviceCount == 0) {
+            fprintf(stderr, "Failed to find Vulkan physical device\n"); exit(1);
+        }
+        printf("Gpu: Found %d Vulkan devices\n", physicalDeviceCount);
+        VkPhysicalDevice physicalDevices[physicalDeviceCount];
+        vkEnumeratePhysicalDevices(instance, &physicalDeviceCount, physicalDevices);
+
+        physicalDevice = physicalDevices[0];
+    }
+
+    uint32_t graphicsQueueFamilyIndex = UINT32_MAX;
+    uint32_t computeQueueFamilyIndex = UINT32_MAX; {
+        uint32_t queueFamilyCount = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, NULL);
+        VkQueueFamilyProperties queueFamilies[queueFamilyCount];
+        vkGetPhysicalDeviceQueueFamilyProperties(physicalDevice, &queueFamilyCount, queueFamilies);
+        for (int i = 0; i < queueFamilyCount; i++) {
+            if (queueFamilies[i].queueFlags & VK_QUEUE_COMPUTE_BIT) {
+                computeQueueFamilyIndex = i;
+            }
+            if (queueFamilies[i].queueFlags & VK_QUEUE_GRAPHICS_BIT) {
+                graphicsQueueFamilyIndex = i;
+                break;
+            }
+        }
+        if (graphicsQueueFamilyIndex == UINT32_MAX) {
+            fprintf(stderr, "Failed to find a Vulkan graphics queue family\n"); exit(1);
+        }
+        if (computeQueueFamilyIndex == UINT32_MAX) {
+            fprintf(stderr, "Failed to find a Vulkan compute queue family\n"); exit(1);
+        }
+    }
+
+    VkDevice device; {
+        VkDeviceQueueCreateInfo queueCreateInfo = {0};
+        queueCreateInfo.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        queueCreateInfo.queueFamilyIndex = graphicsQueueFamilyIndex;
+        queueCreateInfo.queueCount = 1;
+        float queuePriority = 1.0f;
+        queueCreateInfo.pQueuePriorities = &queuePriority;
+
+        VkPhysicalDeviceFeatures deviceFeatures = {0};
+
+        const char *deviceExtensions[] = {
+            VK_KHR_SWAPCHAIN_EXTENSION_NAME,
+            VK_KHR_MAINTENANCE3_EXTENSION_NAME
+        };
+
+        VkDeviceCreateInfo createInfo = {0};
+        createInfo.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+        createInfo.pQueueCreateInfos = &queueCreateInfo;
+        createInfo.queueCreateInfoCount = 1;
+        createInfo.pEnabledFeatures = &deviceFeatures;
+        createInfo.enabledLayerCount = 0;
+        createInfo.enabledExtensionCount = sizeof(deviceExtensions)/sizeof(deviceExtensions[0]);
+        createInfo.ppEnabledExtensionNames = deviceExtensions;
+
+        /* VkPhysicalDeviceDescriptorIndexingFeatures descriptorIndexingFeatures = {0}; */
+        /* descriptorIndexingFeatures.sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DESCRIPTOR_INDEXING_FEATURES; */
+        /* descriptorIndexingFeatures.descriptorBindingPartiallyBound = VK_TRUE; */
+        /* // TODO: Do we need more descriptor indexing features? */
+        /* createInfo.pNext = &descriptorIndexingFeatures; */
+
+        VKTRY(vkCreateDevice(physicalDevice, &createInfo, NULL, &device));
+    }
+
+    uint32_t propertyCount;
+    vkEnumerateInstanceLayerProperties(&propertyCount, NULL);
+    VkLayerProperties layerProperties[propertyCount];
+    vkEnumerateInstanceLayerProperties(&propertyCount, layerProperties);
+
+    VkSurfaceKHR surface; {
+        uint32_t displayCount;
+        vkGetPhysicalDeviceDisplayPropertiesKHR(physicalDevice, &displayCount, NULL);
+        printf("Gpu: Found %d displays\n", displayCount);
+        if (displayCount == 0) {
+            fprintf(stderr, "Gpu: No displays found\n"); exit(1);
+        }
+    }
 }
